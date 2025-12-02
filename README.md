@@ -1,36 +1,94 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a small token management service built with the [Next.js](https://nextjs.org) App Router.
 
-## Getting Started
+It exposes a typed API for creating and listing user access tokens with scopes and expiry, plus a minimal frontend to exercise the API.
 
-First, run the development server:
+## Stack
+
+- **Framework**: Next.js (App Router, TypeScript)
+- **Runtime**: Node.js (API routes)
+- **Storage**: In-memory store (module-level array)
+
+> **Note**: In-memory storage is used for simplicity:
+> - Tokens are lost when the server restarts.
+> - Tokens are not shared across multiple instances of the app.
+
+## Running the Project
+
+Install dependencies and start the dev server:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open `http://localhost:3000` in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The home page provides:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- A form to **create a token** (userId, scopes, expiry).
+- A form to **list all non-expired tokens** for a given `userId`.
 
-## Learn More
+## API Overview
 
-To learn more about Next.js, take a look at the following resources:
+### `POST /api/tokens`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Create a new token for a user.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Request body (JSON)**:
 
-## Deploy on Vercel
+```json
+{
+  "userId": "123",
+  "scopes": ["read", "write"],
+  "expiresInMinutes": 60
+}
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**Validation**
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `userId`: non-empty string.
+- `scopes`: non-empty array of non-empty strings.
+- `expiresInMinutes`: positive integer.
+
+**Response (201, JSON)**:
+
+```json
+{
+  "id": "token_abc123",
+  "userId": "123",
+  "scopes": ["read", "write"],
+  "createdAt": "2025-01-01T10:00:00.000Z",
+  "expiresAt": "2025-01-01T11:00:00.000Z",
+  "token": "9f0c2d6a3b..."
+}
+```
+
+### `GET /api/tokens?userId=123`
+
+List all **non-expired** tokens for a user.
+
+- Required query param: `userId` (non-empty string).
+- Expired tokens are filtered out server-side.
+
+**Response (200, JSON)**:
+
+```json
+[
+  {
+    "id": "token_abc123",
+    "userId": "123",
+    "scopes": ["read", "write"],
+    "createdAt": "2025-01-01T10:00:00.000Z",
+    "expiresAt": "2025-01-01T11:00:00.000Z",
+    "token": "9f0c2d6a3b..."
+  }
+]
+```
+
+## Implementation Notes & Assumptions
+
+- Tokens are stored in an in-memory array in `lib/tokens.ts`.
+- Tokens are identified by an `id` like `token_<uuid>` and a separate random token string.
+- Dates are stored as `Date` instances server-side and returned as ISO8601 strings in the API.
+- No authentication is implemented for the API endpoints (could be added via an API key header or similar).
+
